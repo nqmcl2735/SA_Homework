@@ -1,0 +1,22 @@
+{
+  "name": "sa-homework",
+  "version": "1.0.0",
+  "private": true,
+  "type": "module",
+  "engines": {
+    "node": ">=20"
+  },
+  "scripts": {
+    "start:users": "node --env-file=.env user-service/server.js",
+    "start:orders": "node --env-file=.env order-service/server.js",
+    "start:gateway": "node --env-file=.env api-gateway/server.js",
+    "test": "node --test"
+  },
+  "dependencies": {
+    "@aws-sdk/client-s3": "3.1156.0",
+    "@aws-sdk/s3-request-presigner": "3.1156.0",
+    "express": "^5.1.0",
+    "express-rate-limit": "^8.1.0",
+    "jsonwebtoken": "^9.0.2"
+  }
+}

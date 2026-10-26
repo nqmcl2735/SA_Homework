@@ -1,0 +1,68 @@
+services:
+  api-gateway:
+    build: .
+    command: node api-gateway/server.js
+    ports:
+      - "3000:3000"
+    environment:
+      JWT_SECRET: ${JWT_SECRET:?Copy .env.example to .env first}
+      JWT_ISSUER: ${JWT_ISSUER}
+      JWT_AUDIENCE: ${JWT_AUDIENCE}
+      USER_SERVICE_URL: http://user-service:3001
+      ORDER_SERVICE_URL: http://order-service:3002
+    networks: [backend, public]
+    depends_on: [user-service, order-service]
+  user-service:
+    build: .
+    command: node user-service/server.js
+    environment:
+      SERVICE_HOST: 0.0.0.0
+      JWT_SECRET: ${JWT_SECRET}
+      JWT_ISSUER: ${JWT_ISSUER}
+      JWT_AUDIENCE: ${JWT_AUDIENCE}
+      MINIO_PUBLIC_ENDPOINT: ${MINIO_PUBLIC_ENDPOINT}
+      MINIO_REGION: ${MINIO_REGION}
+      MINIO_BUCKET: ${MINIO_BUCKET}
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+    networks: [backend]
+    depends_on:
+      minio-init:
+        condition: service_completed_successfully
+  order-service:
+    build: .
+    command: node order-service/server.js
+    environment:
+      SERVICE_HOST: 0.0.0.0
+    networks: [backend]
+  minio:
+    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
+      MINIO_ROOT_PASSWORD: ${MINIO_SECRET_KEY}
+    ports:
+      - "9000:9000"
+    volumes:
+      - minio-data:/data
+    networks: [backend, public]
+  minio-init:
+    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    environment:
+      MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
+      MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
+      MINIO_BUCKET: ${MINIO_BUCKET}
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        until mc alias set local http://minio:9000 "$$MINIO_ACCESS_KEY" "$$MINIO_SECRET_KEY"; do sleep 1; done
+        mc mb --ignore-existing "local/$$MINIO_BUCKET"
+    networks: [backend]
+    depends_on: [minio]
+networks:
+  backend:
+    internal: true
+  public:
+volumes:
+  minio-data:
