@@ -48,18 +48,39 @@ export function createGatewayApp({ auth, userServiceUrl, orderServiceUrl }) {
   app.use('/users', protectedLimiter, authenticate, proxy(userServiceUrl));
   app.use('/orders', protectedLimiter, authenticate, proxy(orderServiceUrl));
   app.get('/dashboard', protectedLimiter, authenticate, async (req, res) => {
-    try {
-      const id = encodeURIComponent(req.userId);
-      const [userResponse, ordersResponse] = await Promise.all([
-        upstream(userServiceUrl, `/users/${id}`, req),
-        upstream(orderServiceUrl, `/orders?userId=${id}`, req),
-      ]);
-      const [user, data] = await Promise.all([userResponse.json(), ordersResponse.json()]);
-      if (!userResponse.ok || !ordersResponse.ok) return res.status(502).json({ error: 'Upstream service unavailable' });
-      res.json({ user, orders: data.orders });
-    } catch {
-      res.status(502).json({ error: 'Upstream service unavailable' });
+    const id = encodeURIComponent(req.userId);
+    async function readService(base, path) {
+      const response = await upstream(base, path, req);
+      const data = await response.json();
+      if (!response.ok) throw new Error('Upstream service unavailable');
+      return data;
     }
+    const [userResult, ordersResult] = await Promise.allSettled([
+      readService(userServiceUrl, `/users/${id}`).then((user) => {
+        if (!user || user.id !== req.userId) throw new Error('Invalid user response');
+        return user;
+      }),
+      readService(orderServiceUrl, `/orders?userId=${id}`).then((data) => {
+        if (!Array.isArray(data?.orders)) throw new Error('Invalid orders response');
+        return data.orders;
+      }),
+    ]);
+    const hasUser = userResult.status === 'fulfilled';
+    const hasOrders = ordersResult.status === 'fulfilled';
+    if (!hasUser && !hasOrders) {
+      return res.status(502).json({ error: 'Upstream service unavailable' });
+    }
+    const result = {
+      user: hasUser ? userResult.value : null,
+      orders: hasOrders ? ordersResult.value : null,
+    };
+    if (!hasUser || !hasOrders) {
+      result.errors = {};
+      if (!hasUser) result.errors.user = 'User service unavailable';
+      if (!hasOrders) result.errors.orders = 'Order service unavailable';
+      return res.status(206).json(result);
+    }
+    res.json(result);
   });
   return finishApp(app);
 }

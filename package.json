@@ -10,7 +10,8 @@
     "start:users": "node --env-file=.env user-service/server.js",
     "start:orders": "node --env-file=.env order-service/server.js",
     "start:gateway": "node --env-file=.env api-gateway/server.js",
-    "test": "node --test"
+    "test": "node --test test/*.test.js && npm run benchmark",
+    "benchmark": "node test/benchmark.js"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "3.1156.0",

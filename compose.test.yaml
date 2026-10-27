@@ -1,0 +1,67 @@
+# Stack kiểm thử độc lập, không mở cổng host, không dùng volume dữ liệu thật.
+x-test-env: &test-env
+  JWT_SECRET: isolated-test-jwt-secret
+  JWT_ISSUER: sa-homework-users
+  JWT_AUDIENCE: sa-homework-api
+  SERVICE_HOST: 0.0.0.0
+  USER_SERVICE_URL: http://user-service:3001
+  ORDER_SERVICE_URL: http://order-service:3002
+  MINIO_PUBLIC_ENDPOINT: http://minio:9000
+  MINIO_REGION: us-east-1
+  MINIO_BUCKET: avatars-test
+  MINIO_ACCESS_KEY: test-minio
+  MINIO_SECRET_KEY: test-minio-secret
+x-runtime: &runtime
+  build:
+    context: .
+    target: runtime
+  environment: *test-env
+services:
+  api-gateway:
+    <<: *runtime
+    command: node api-gateway/server.js
+    depends_on: [user-service, order-service]
+  user-service:
+    <<: *runtime
+    command: node user-service/server.js
+    depends_on:
+      minio-init:
+        condition: service_completed_successfully
+  order-service:
+    <<: *runtime
+    command: node order-service/server.js
+  minio:
+    build:
+      context: ./docker/minio
+      target: minio
+    command: server /data
+    environment:
+      MINIO_ROOT_USER: test-minio
+      MINIO_ROOT_PASSWORD: test-minio-secret
+    tmpfs: /data
+  minio-init:
+    build:
+      context: ./docker/minio
+      target: mc
+    entrypoint: /bin/sh
+    command:
+      - -c
+      - |
+        for i in $$(seq 1 60); do
+          if mc alias set local http://minio:9000 test-minio test-minio-secret; then
+            mc mb --ignore-existing local/avatars-test
+            exit $$?
+          fi
+          sleep 1
+        done
+        exit 1
+    depends_on: [minio]
+  tests:
+    build:
+      context: .
+      target: test
+    environment:
+      <<: *test-env
+      RUN_MINIO_TESTS: '1'
+      TEST_GATEWAY_URL: http://api-gateway:3000
+    depends_on: [api-gateway]

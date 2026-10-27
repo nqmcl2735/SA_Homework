@@ -1,6 +1,8 @@
 services:
   api-gateway:
-    build: .
+    build:
+      context: .
+      target: runtime
     command: node api-gateway/server.js
     ports:
       - "3000:3000"
@@ -13,7 +15,9 @@ services:
     networks: [backend, public]
     depends_on: [user-service, order-service]
   user-service:
-    build: .
+    build:
+      context: .
+      target: runtime
     command: node user-service/server.js
     environment:
       SERVICE_HOST: 0.0.0.0
@@ -30,13 +34,17 @@ services:
       minio-init:
         condition: service_completed_successfully
   order-service:
-    build: .
+    build:
+      context: .
+      target: runtime
     command: node order-service/server.js
     environment:
       SERVICE_HOST: 0.0.0.0
     networks: [backend]
   minio:
-    image: minio/minio:RELEASE.2025-04-22T22-12-26Z
+    build:
+      context: ./docker/minio
+      target: minio
     command: server /data
     environment:
       MINIO_ROOT_USER: ${MINIO_ACCESS_KEY}
@@ -47,7 +55,9 @@ services:
       - minio-data:/data
     networks: [backend, public]
   minio-init:
-    image: minio/mc:RELEASE.2025-04-16T18-13-26Z
+    build:
+      context: ./docker/minio
+      target: mc
     environment:
       MINIO_ACCESS_KEY: ${MINIO_ACCESS_KEY}
       MINIO_SECRET_KEY: ${MINIO_SECRET_KEY}
