@@ -145,10 +145,3 @@ SQLite lấy bản ghi cư dân bằng ID, thay vì quét toàn bộ bảng cư 
 
 Baseline đọc và giải mã JSON của tất cả cư dân. Index Table tra các ID phù
 hợp trước, rồi chỉ lấy và giải mã thông tin của những người khớp điều kiện.
-Chênh lệch thời gian vì vậy bao gồm cả phần xử lý JSON trong Python.
-
-Kết quả trên phản ánh lần chạy với dữ liệu và bộ nhớ đệm hiện tại; tốc độ
-phụ thuộc máy chạy, tải hệ thống và tỷ lệ bản ghi khớp. Bảng tra cứu cần
-thêm dung lượng và phải được cập nhật khi thêm, sửa hoặc xóa cư dân.
-Script hiện tại xây lại bảng tra cứu trước mỗi lần benchmark, chưa tự động
-đồng bộ khi dữ liệu cư dân thay đổi.
